@@ -12,6 +12,7 @@ use criterion::{
 use rocksdb::{DB, Options, IteratorMode};
 use sled;
 use redis;
+use redis::Commands;
 
 use {
     // byteorder::{BigEndian, LittleEndian},
@@ -54,8 +55,55 @@ impl Drop for Stats {
 }
 
 fn redis_bench(c: &mut Criterion) {
+    // Number of keys to generate
+    let n_keys = 10000 as usize;
+    let n_search_keys: usize = 10;
+    // Size of value in bytes
+    let value_size = 2048 as usize;
+    let mut benchmark = c.benchmark_group("redis");
+
     let client = redis::Client::open("redis://127.0.0.1/").unwrap();
-    let mut con = client.get_connection().unwrap();
+    let mut db = client.get_connection().unwrap();
+
+    // Get pre-generated keys and store to searchbox
+    let sbox = generate_keys(n_keys);
+    println!("sbox len {}", sbox.len());
+
+    benchmark.bench_function(
+        BenchmarkId::new("redis_set", format!("{}x{}", n_keys, value_size)),
+        |bencher| {
+            bencher.iter(|| {
+            {
+                // Fill in database
+                for i in 0..sbox.len() {
+                    // Generate random data
+                    let value = generate_value(1024);
+                    // Add (key, value) pair
+                    let _: () = db.set(sbox[i].0.as_bytes(), value.0.as_bytes()).unwrap();
+                }
+            }
+            });
+        },
+    );
+
+    benchmark.bench_function(
+        BenchmarkId::new("redis_get", format!("{}x{}", n_keys, value_size)),
+        |bencher| {
+            bencher.iter(|| {
+            {
+                // Search random keys
+                for i in 0..n_search_keys {
+                    let s = &sbox[i];
+                    let _: String = db.get(s.0.as_bytes()).unwrap();
+                }
+            }
+            });
+        },
+    );
+
+
+
+
 }
 
 fn sled_bench(c: &mut Criterion) {
@@ -75,7 +123,7 @@ fn sled_bench(c: &mut Criterion) {
     println!("sbox len {}", sbox.len());
 
     benchmark.bench_function(
-        BenchmarkId::new("sled_params", format!("{}x{}", n_keys, value_size)),
+        BenchmarkId::new("sled_set", format!("{}x{}", n_keys, value_size)),
         |bencher| {
             bencher.iter(|| {
             {
@@ -86,30 +134,35 @@ fn sled_bench(c: &mut Criterion) {
                     // Add (key, value) pair
                     db.insert(sbox[i].0.as_bytes(), value.0.as_bytes()).unwrap();
                 }
+            }
+            });
+        },
+    );
 
+    benchmark.bench_function(
+        BenchmarkId::new("sled_get", format!("{}x{}", n_keys, value_size)),
+        |bencher| {
+            bencher.iter(|| {
+            {
                 // Search random keys
                 for i in 0..n_search_keys {
                     let s = &sbox[i];
 
                     let _res = match db.get(s.0.as_bytes()) {
                         Ok(Some(_value)) => {
-                            // println!("retrieved value {}", String::from_utf8(value).unwrap());
                             true
                         },
 
                         Ok(None) => false,
                         Err(_e) => {
-                            // println!("operational problem encountered: {}", e);
                             false
                         },
                     };
                 }
             }
-
             });
         },
     );
-
 }
 
 
@@ -137,7 +190,7 @@ fn rocksdb_bench(c: &mut Criterion) {
     println!("sbox len {}", sbox.len());
 
     benchmark.bench_function(
-        BenchmarkId::new("rocksdb_params", format!("{}x{}", n_keys, value_size)),
+        BenchmarkId::new("rocksdb_set", format!("{}x{}", n_keys, value_size)),
         |bencher| {
             bencher.iter(|| {
             {
@@ -148,26 +201,32 @@ fn rocksdb_bench(c: &mut Criterion) {
                     // Add (key, value) pair
                     db.put(sbox[i].0.as_bytes(), value.0.as_bytes()).unwrap();
                 }
+            }
 
+            });
+        },
+    );
+
+    benchmark.bench_function(
+        BenchmarkId::new("rocksdb_get", format!("{}x{}", n_keys, value_size)),
+        |bencher| {
+            bencher.iter(|| {
+            {
                 // Search random keys
                 for i in 0..n_search_keys {
                     let s = &sbox[i];
-
                     let _res = match db.get(s.0.as_bytes()) {
                         Ok(Some(_value)) => {
-                            // println!("retrieved value {}", String::from_utf8(value).unwrap());
                             true
                         },
 
                         Ok(None) => false,
                         Err(_e) => {
-                            // println!("operational problem encountered: {}", e);
                             false
                         },
                     };
                 }
             }
-
             });
         },
     );
