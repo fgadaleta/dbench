@@ -23,13 +23,6 @@ use {
     },
 };
 
-// use rand_isaac::Isaac64Rng;
-// use random_string::{
-//     Charset,
-//     GenResult,
-//     generate,
-// };
-
 use dbench::{generate_keys, generate_value};
 
 
