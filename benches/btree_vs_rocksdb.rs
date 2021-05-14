@@ -26,6 +26,29 @@ use {
 use dbench::{generate_keys, generate_value};
 
 
+/// This is the concatenation merge operator in Sled.
+fn sled_cat(_key: &[u8], val: Option<&[u8]>, new: &[u8]) -> Option<Vec<u8>> {
+    Some(val.into_iter().flatten().chain(new).cloned().collect())
+}
+
+/// This is the concatenation merge operator in RocksDB.
+fn rocks_cat(_key: &[u8], val: Option<&[u8]>, new: &mut rocksdb::MergeOperands) -> Option<Vec<u8>> {
+    Some(
+        val.into_iter()
+            .flatten()
+            .chain(new.into_iter().flatten())
+            .cloned()
+            .collect(),
+    )
+}
+
+/// Quick and dirty slice to u32.
+fn from_bytes(b: &[u8]) -> u32 {
+    u32::from_le_bytes([b[0], b[1], b[2], b[3]])
+}
+
+
+
 #[derive(Default)]
 struct Stats {
     total_cost: f64,
@@ -101,15 +124,19 @@ fn redis_bench(c: &mut Criterion) {
 
 fn sled_bench(c: &mut Criterion) {
     // Number of keys to generate
-    let n_keys = 10000 as usize;
+    let n_keys = 100000 as usize;
     let n_search_keys: usize = 10;
     // Size of value in bytes
     let value_size = 2048 as usize;
 
     let mut benchmark = c.benchmark_group("sled");
 
-    let db = sled::open("/tmp/db_sled").unwrap();
-    let res = db.insert(&[1, 2, 3], vec![0]);
+    let config = sled::Config::default()
+        .path("/tmp/db_sled".to_owned())
+        .cache_capacity(10_000_000_000)
+        .flush_every_ms(Some(1000));
+    let db = config.open().unwrap();
+    let _res = db.insert(&[1, 2, 3], vec![0]);
 
     // Get pre-generated keys and store to searchbox
     let sbox = generate_keys(n_keys);
@@ -170,13 +197,17 @@ fn rocksdb_bench(c: &mut Criterion) {
     let mut stats = Stats::default();
 
     // Number of keys to generate
-    let n_keys = 10000 as usize;
+    let n_keys = 100000 as usize;
     let n_search_keys: usize = 10;
     // Size of value in bytes
     let value_size = 2048 as usize;
+    let ROCKS_PATH = "/tmp/db_rocksdb";
 
-    let path = "/tmp/db_rocksdb";
-    let db = DB::open_default(path).unwrap();
+    let mut options = rocksdb::Options::default();
+    options.create_if_missing(true);
+    // options.set_merge_operator("rocks_cat", rocks_cat, None);
+    options.set_compression_type(rocksdb::DBCompressionType::Lz4);
+    let db = rocksdb::DB::open(&options, ROCKS_PATH).unwrap();
 
     // Get pre-generated keys and store to searchbox
     let sbox = generate_keys(n_keys);
@@ -234,7 +265,7 @@ fn rocksdb_bench(c: &mut Criterion) {
         // }
     }
 
-    let _ = DB::destroy(&Options::default(), path);
+    let _ = DB::destroy(&Options::default(), ROCKS_PATH);
     stats.add(0 as f64);
     benchmark.finish();
 }
