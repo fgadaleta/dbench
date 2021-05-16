@@ -5,9 +5,9 @@ use std::{
 use criterion::{
     // black_box,
     criterion_group, criterion_main,
-    // AxisScale,
+    AxisScale,
     BenchmarkId, Criterion,
-    // PlotConfiguration,
+    PlotConfiguration,
 };
 use rocksdb::{DB, Options, IteratorMode};
 use sled;
@@ -127,59 +127,60 @@ fn sled_bench(c: &mut Criterion) {
     let conf = config::Config::default();
 
     let mut benchmark = c.benchmark_group("sled");
+    benchmark.plot_config(PlotConfiguration::default().summary_scale(AxisScale::Logarithmic));
 
     let config = sled::Config::default()
         .path("/tmp/db_sled".to_owned())
         .cache_capacity(10_000_000_000)
         .flush_every_ms(Some(1000));
     let db = config.open().unwrap();
-    // let _res = db.insert(&[1, 2, 3], vec![0]);
 
     // Get pre-generated keys and store to searchbox
     let sbox = generate_keys(conf.n_keys);
-    println!("sbox len {}", sbox.len());
 
-    benchmark.bench_function(
-        BenchmarkId::new("sled_set", format!("{}x{}", conf.n_keys, conf.value_size)),
-        |bencher| {
-            bencher.iter(|| {
-            {
-                // Fill in database
-                for i in 0..sbox.len() {
-                    // Generate random data
-                    let value = generate_value(conf.value_size);
-                    // Add (key, value) pair
-                    db.insert(sbox[i].0.as_bytes(), value.0.as_bytes()).unwrap();
+    for sz in conf.value_size.clone() {
+        benchmark.bench_function(
+            BenchmarkId::new("sled_set", format!("{}x{}", conf.n_keys, sz)),
+            |bencher| {
+                bencher.iter(|| {
+                {
+                    // Fill in database
+                    for i in 0..sbox.len() {
+                        // Generate random data
+                        let value = generate_value(sz);
+                        // Add (key, value) pair
+                        db.insert(sbox[i].0.as_bytes(), value.0.as_bytes()).unwrap();
+                    }
                 }
-            }
-            });
-        },
-    );
+                });
+            },
+        );
 
-    benchmark.bench_function(
-        BenchmarkId::new("sled_get", format!("{}x{}", conf.n_search_keys, conf.value_size)),
-        |bencher| {
-            bencher.iter(|| {
-            {
-                // Search random keys
-                for i in 0..conf.n_search_keys {
-                    let s = &sbox[i];
+        benchmark.bench_function(
+            BenchmarkId::new("sled_get", format!("{}x{}", conf.n_search_keys, sz)),
+            |bencher| {
+                bencher.iter(|| {
+                {
+                    // Search random keys
+                    for i in 0..conf.n_search_keys {
+                        let s = &sbox[i];
 
-                    let _res = match db.get(s.0.as_bytes()) {
-                        Ok(Some(_value)) => {
-                            true
-                        },
+                        let _res = match db.get(s.0.as_bytes()) {
+                            Ok(Some(_value)) => {
+                                true
+                            },
 
-                        Ok(None) => false,
-                        Err(_e) => {
-                            false
-                        },
-                    };
+                            Ok(None) => false,
+                            Err(_e) => {
+                                false
+                            },
+                        };
+                    }
                 }
-            }
-            });
-        },
-    );
+                });
+            },
+        );
+    }
 }
 
 
@@ -200,49 +201,49 @@ fn rocksdb_bench(c: &mut Criterion) {
 
     // Get pre-generated keys and store to searchbox
     let sbox = generate_keys(conf.n_keys);
-    println!("sbox len {}", sbox.len());
 
-    benchmark.bench_function(
-        BenchmarkId::new("rocksdb_set", format!("{}x{}", conf.n_keys, conf.value_size)),
-        |bencher| {
-            bencher.iter(|| {
-            {
-                // Fill in database
-                for i in 0..sbox.len() {
-                    // Generate random data
-                    let value = generate_value(conf.value_size);
-                    // Add (key, value) pair
-                    db.put(sbox[i].0.as_bytes(), value.0.as_bytes()).unwrap();
+    for sz in conf.value_size.clone() {
+        benchmark.bench_function(
+            BenchmarkId::new("rocksdb_set", format!("{}x{}", conf.n_keys, sz)),
+            |bencher| {
+                bencher.iter(|| {
+                {
+                    // Fill in database
+                    for i in 0..sbox.len() {
+                        // Generate random data
+                        let value = generate_value(sz);
+                        // Add (key, value) pair
+                        db.put(sbox[i].0.as_bytes(), value.0.as_bytes()).unwrap();
+                    }
                 }
-            }
+                });
+            },
+        );
 
-            });
-        },
-    );
+        benchmark.bench_function(
+            BenchmarkId::new("rocksdb_get", format!("{}x{}", conf.n_search_keys, sz)),
+            |bencher| {
+                bencher.iter(|| {
+                {
+                    // Search random keys
+                    for i in 0..conf.n_search_keys {
+                        let s = &sbox[i];
+                        let _res = match db.get(s.0.as_bytes()) {
+                            Ok(Some(_value)) => {
+                                true
+                            },
 
-    benchmark.bench_function(
-        BenchmarkId::new("rocksdb_get", format!("{}x{}", conf.n_search_keys, conf.value_size)),
-        |bencher| {
-            bencher.iter(|| {
-            {
-                // Search random keys
-                for i in 0..conf.n_search_keys {
-                    let s = &sbox[i];
-                    let _res = match db.get(s.0.as_bytes()) {
-                        Ok(Some(_value)) => {
-                            true
-                        },
-
-                        Ok(None) => false,
-                        Err(_e) => {
-                            false
-                        },
-                    };
+                            Ok(None) => false,
+                            Err(_e) => {
+                                false
+                            },
+                        };
+                    }
                 }
-            }
-            });
-        },
-    );
+                });
+            },
+        );
+    }
 
     // // Delete all keys
     // let iter = db.iterator(IteratorMode::Start);
