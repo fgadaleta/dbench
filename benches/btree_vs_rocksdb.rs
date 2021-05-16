@@ -23,7 +23,7 @@ use {
     },
 };
 
-use dbench::{generate_keys, generate_value};
+use dbench::{generate_keys, generate_value, config};
 
 
 /// This is the concatenation merge operator in Sled.
@@ -123,11 +123,8 @@ fn redis_bench(c: &mut Criterion) {
 }
 
 fn sled_bench(c: &mut Criterion) {
-    // Number of keys to generate
-    let n_keys = 100000 as usize;
-    let n_search_keys: usize = 10;
-    // Size of value in bytes
-    let value_size = 2048 as usize;
+    // Number of keys to generate, search and size of value
+    let conf = config::Config::default();
 
     let mut benchmark = c.benchmark_group("sled");
 
@@ -136,21 +133,21 @@ fn sled_bench(c: &mut Criterion) {
         .cache_capacity(10_000_000_000)
         .flush_every_ms(Some(1000));
     let db = config.open().unwrap();
-    let _res = db.insert(&[1, 2, 3], vec![0]);
+    // let _res = db.insert(&[1, 2, 3], vec![0]);
 
     // Get pre-generated keys and store to searchbox
-    let sbox = generate_keys(n_keys);
+    let sbox = generate_keys(conf.n_keys);
     println!("sbox len {}", sbox.len());
 
     benchmark.bench_function(
-        BenchmarkId::new("sled_set", format!("{}x{}", n_keys, value_size)),
+        BenchmarkId::new("sled_set", format!("{}x{}", conf.n_keys, conf.value_size)),
         |bencher| {
             bencher.iter(|| {
             {
                 // Fill in database
                 for i in 0..sbox.len() {
                     // Generate random data
-                    let value = generate_value(1024);
+                    let value = generate_value(conf.value_size);
                     // Add (key, value) pair
                     db.insert(sbox[i].0.as_bytes(), value.0.as_bytes()).unwrap();
                 }
@@ -160,12 +157,12 @@ fn sled_bench(c: &mut Criterion) {
     );
 
     benchmark.bench_function(
-        BenchmarkId::new("sled_get", format!("{}x{}", n_keys, value_size)),
+        BenchmarkId::new("sled_get", format!("{}x{}", conf.n_search_keys, conf.value_size)),
         |bencher| {
             bencher.iter(|| {
             {
                 // Search random keys
-                for i in 0..n_search_keys {
+                for i in 0..conf.n_search_keys {
                     let s = &sbox[i];
 
                     let _res = match db.get(s.0.as_bytes()) {
@@ -186,42 +183,34 @@ fn sled_bench(c: &mut Criterion) {
 }
 
 
-fn btree_bench(c: &mut Criterion) {
+fn btree_bench(_c: &mut Criterion) {
 
 }
 
 fn rocksdb_bench(c: &mut Criterion) {
-    // let mut rng = Isaac64Rng::seed_from_u64(40);
-    // let charset_str = Charset::new("1234567890").unwrap();
+    // Number of keys to generate, search and size of value
+    let conf = config::Config::default();
     let mut benchmark = c.benchmark_group("rocksdb");
-    let mut stats = Stats::default();
-
-    // Number of keys to generate
-    let n_keys = 100000 as usize;
-    let n_search_keys: usize = 10;
-    // Size of value in bytes
-    let value_size = 2048 as usize;
-    let ROCKS_PATH = "/tmp/db_rocksdb";
-
+    // let mut stats = Stats::default();
+    let rocks_path = "/tmp/db_rocksdb";
     let mut options = rocksdb::Options::default();
     options.create_if_missing(true);
-    // options.set_merge_operator("rocks_cat", rocks_cat, None);
     options.set_compression_type(rocksdb::DBCompressionType::Lz4);
-    let db = rocksdb::DB::open(&options, ROCKS_PATH).unwrap();
+    let db = rocksdb::DB::open(&options, rocks_path).unwrap();
 
     // Get pre-generated keys and store to searchbox
-    let sbox = generate_keys(n_keys);
+    let sbox = generate_keys(conf.n_keys);
     println!("sbox len {}", sbox.len());
 
     benchmark.bench_function(
-        BenchmarkId::new("rocksdb_set", format!("{}x{}", n_keys, value_size)),
+        BenchmarkId::new("rocksdb_set", format!("{}x{}", conf.n_keys, conf.value_size)),
         |bencher| {
             bencher.iter(|| {
             {
                 // Fill in database
                 for i in 0..sbox.len() {
                     // Generate random data
-                    let value = generate_value(1024);
+                    let value = generate_value(conf.value_size);
                     // Add (key, value) pair
                     db.put(sbox[i].0.as_bytes(), value.0.as_bytes()).unwrap();
                 }
@@ -232,12 +221,12 @@ fn rocksdb_bench(c: &mut Criterion) {
     );
 
     benchmark.bench_function(
-        BenchmarkId::new("rocksdb_get", format!("{}x{}", n_keys, value_size)),
+        BenchmarkId::new("rocksdb_get", format!("{}x{}", conf.n_search_keys, conf.value_size)),
         |bencher| {
             bencher.iter(|| {
             {
                 // Search random keys
-                for i in 0..n_search_keys {
+                for i in 0..conf.n_search_keys {
                     let s = &sbox[i];
                     let _res = match db.get(s.0.as_bytes()) {
                         Ok(Some(_value)) => {
@@ -255,18 +244,15 @@ fn rocksdb_bench(c: &mut Criterion) {
         },
     );
 
-    // Delete all keys
-    let iter = db.iterator(IteratorMode::Start);
-    for (_i, item) in iter.enumerate() {
-        let key = item.0;
-        db.delete(key).unwrap();
-        // if i % 10000 == 0 {
-        //     println!("{} keys deleted", i + 10000);
-        // }
-    }
+    // // Delete all keys
+    // let iter = db.iterator(IteratorMode::Start);
+    // for (_i, item) in iter.enumerate() {
+    //     let key = item.0;
+    //     db.delete(key).unwrap();
+    // }
 
-    let _ = DB::destroy(&Options::default(), ROCKS_PATH);
-    stats.add(0 as f64);
+    // let _ = DB::destroy(&Options::default(), rocks_path);
+    // stats.add(0 as f64);
     benchmark.finish();
 }
 

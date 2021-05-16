@@ -1,7 +1,9 @@
+pub mod config;
+
 // use rand_isaac::Isaac64Rng;
 use random_string::{
     Charset,
-    GenResult,
+    // GenResult,
     generate,
 };
 
@@ -12,8 +14,6 @@ impl Record {
 //     fn new(key: Vec<u8>, value: Vec<u8>) -> Self {
 //         Record { key, value}
 //     }
-
-
 }
 
 
@@ -26,14 +26,8 @@ pub fn generate_keys(num_records: usize) -> Vec<Record> {
     for _i in 0..num_records {
         // Generate key here and value directly from db (or waste too much memory)
         let key = generate(12, &charset_str).to_string();
-        // let value = generate(value_size, &charset_str).to_string();
-        // let record = Record::new(key.as_bytes().into(), value.as_bytes().into());
         let record = Record(key.as_bytes().into());
         searchbox.push(record);
-
-        // if i % 10000 == 0 {
-        //     println!("Added {} keys ", i + 10000);
-        // }
     }
 
     searchbox
