@@ -184,10 +184,6 @@ fn sled_bench(c: &mut Criterion) {
 }
 
 
-fn btree_bench(_c: &mut Criterion) {
-
-}
-
 fn rocksdb_bench(c: &mut Criterion) {
     // Number of keys to generate, search and size of value
     let conf = config::Config::default();
