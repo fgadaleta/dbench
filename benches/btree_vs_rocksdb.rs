@@ -3,12 +3,13 @@ use std::{
     usize};
 
 use criterion::{
-    // black_box,
-    criterion_group, criterion_main,
+    criterion_group,
+    criterion_main,
     AxisScale,
     BenchmarkId, Criterion,
     PlotConfiguration,
 };
+use std::time::{Duration, Instant};
 use rocksdb::{DB, Options, IteratorMode};
 use sled;
 use redis;
@@ -23,7 +24,11 @@ use {
     },
 };
 
-use dbench::{generate_keys, generate_value, config};
+use dbench::{
+    generate_keys,
+    generate_value,
+    config
+};
 
 
 /// This is the concatenation merge operator in Sled.
@@ -183,6 +188,122 @@ fn sled_bench(c: &mut Criterion) {
     }
 }
 
+// TODO sled 1_000_000 1-byte keys vs 1_000 1000-byte keys
+fn sled_bench_key_num_vs_size(c: &mut Criterion) {
+    let mut benchmark = c.benchmark_group("sled");
+    benchmark.plot_config(PlotConfiguration::default().summary_scale(AxisScale::Logarithmic));
+
+    let config = sled::Config::default()
+        .path("/tmp/db_sled".to_owned())
+        .cache_capacity(10_000_000_000)
+        .flush_every_ms(Some(1000));
+    let db = config.open().unwrap();
+
+    // Get pre-generated keys and store to searchbox
+    let n_keys = vec![1_000_000, 1000];
+    let value_size = vec![10, 1_000];
+    let many_keys = generate_keys(1_000_000);
+    let few_keys = generate_keys(1_000);
+
+
+    benchmark.bench_function(
+            BenchmarkId::new("sled_set_1M_small_keys", format!("{}x{}",
+                                                                n_keys.get(0).unwrap(),
+                                                                value_size.get(0).unwrap())),
+            |bencher| {
+                bencher.iter(|| {
+                {
+                    // Fill in database
+                    for i in 0..many_keys.len() {
+                        // Generate random data
+                        let value = generate_value(10);
+                        // Add (key, value) pair
+                        db.insert(many_keys[i].0.as_bytes(), value.0.as_bytes()).unwrap();
+                    }
+                }
+                });
+            },
+        );
+
+        benchmark.bench_function(
+            BenchmarkId::new("sled_set_1000_large_keys", format!("{}x{}",  n_keys.get(1).unwrap(),
+                                                                                                        value_size.get(1).unwrap())),
+            |bencher| {
+                bencher.iter(|| {
+                {
+                    // Fill in database
+                    for i in 0..few_keys.len() {
+                        // Generate random data
+                        let value = generate_value(10_000);
+                        // Add (key, value) pair
+                        db.insert(few_keys[i].0.as_bytes(), value.0.as_bytes()).unwrap();
+                    }
+                }
+                });
+            },
+        );
+
+        benchmark.bench_function(
+            BenchmarkId::new("sled_get_1M_small_keys", format!("{}x{}", n_keys.get(0).unwrap(),
+            value_size.get(0).unwrap())),
+            |bencher| {
+                bencher.iter(|| {
+                {
+                    // Search random keys
+                    for i in 0..many_keys.len() {
+                        let s = &many_keys[i];
+
+                        let _res = match db.get(s.0.as_bytes()) {
+                            Ok(Some(_value)) => {
+                                true
+                            },
+
+                            Ok(None) => false,
+                            Err(_e) => {
+                                false
+                            },
+                        };
+                    }
+                }
+                });
+            },
+        );
+
+
+
+        benchmark.bench_function(
+            BenchmarkId::new("sled_get_1000_large_keys", format!("{}x{}",
+                                                                                            n_keys.get(1).unwrap(),
+                                                                                            value_size.get(1).unwrap())),
+            |bencher| {
+                bencher.iter(|| {
+                {
+                    // Search random keys
+                    for i in 0..few_keys.len() {
+                        let s = &few_keys[i];
+
+                        let _res = match db.get(s.0.as_bytes()) {
+                            Ok(Some(_value)) => {
+                                true
+                            },
+
+                            Ok(None) => false,
+                            Err(_e) => {
+                                false
+                            },
+                        };
+                    }
+                }
+                });
+            },
+        );
+
+
+
+}
+
+
+
 
 fn rocksdb_bench(c: &mut Criterion) {
     // Number of keys to generate, search and size of value
@@ -256,7 +377,7 @@ fn rocksdb_bench(c: &mut Criterion) {
 
 criterion_group! {
     name = benches;
-    config = Criterion::default();
-    targets = rocksdb_bench, sled_bench
+    config = Criterion::default().sample_size(10).measurement_time(Duration::from_secs(60)).warm_up_time(Duration::from_secs(3));
+    targets = /*rocksdb_bench, sled_bench,*/ sled_bench_key_num_vs_size
 }
 criterion_main!(benches);

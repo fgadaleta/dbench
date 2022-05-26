@@ -19,7 +19,7 @@ impl Default for Config {
         Self {
             n_keys: 1000,
             n_search_keys: 100,
-            value_size: vec![512, 1024, 2048]
+            value_size: vec![512, 1024, /*2048*/]
         }
     }
 
