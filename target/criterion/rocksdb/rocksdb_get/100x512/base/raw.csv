@@ -1,0 +1,11 @@
+group,function,value,throughput_num,throughput_type,sample_measured_value,unit,iteration_count
+rocksdb,rocksdb_get,100x512,,,1085653442.0,ns,29179
+rocksdb,rocksdb_get,100x512,,,2166562844.0,ns,58358
+rocksdb,rocksdb_get,100x512,,,3305937725.0,ns,87537
+rocksdb,rocksdb_get,100x512,,,4444752872.0,ns,116716
+rocksdb,rocksdb_get,100x512,,,5491022238.0,ns,145895
+rocksdb,rocksdb_get,100x512,,,6589629410.0,ns,175074
+rocksdb,rocksdb_get,100x512,,,7619421735.0,ns,204253
+rocksdb,rocksdb_get,100x512,,,8553388608.0,ns,233432
+rocksdb,rocksdb_get,100x512,,,9732843984.0,ns,262611
+rocksdb,rocksdb_get,100x512,,,10675627832.0,ns,291790
