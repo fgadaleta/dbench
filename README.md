@@ -12,10 +12,10 @@ cargo-criterion
 
 
 ## Databases considered
-* RocksDB
-* Sled
-* Redis
-* levelDB
+- [x] RocksDB
+- [x] Sled
+- [ ] Redis
+- [ ] levelDB
 
 
 
