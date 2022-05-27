@@ -20,13 +20,20 @@ cargo-criterion
 
 
 ## Benchmark description
+Two benchmarks are hereby performed.
 
-### RocksDB - Sled
+1. comparison rocksdb vs sled on get/set keys of different size
+2. comparison of sled get/set 1M small keys vs 1k large keys
+
+
+### 1. RocksDB - Sled
 
 * Set/Get 100 keys of 512 bytes each
 * Set/Get 1000 keys of 512 bytes each
 * Set/Get 100 keys of 1024 bytes each
 * Set/Get 1000 keys of 1024 bytes each
+
+
 
 ```
 rocksdb/rocksdb_set/1000x512    time:   [4.0774 ms 4.1015 ms 4.1169 ms]
@@ -42,7 +49,7 @@ rocksdb_get/100x1024    time:   [48.303 us 48.940 us 49.210 us]
 sled_get/100x1024       time:   [18.527 us 18.623 us 18.743 us]
 ```
 
-### Sled 1M keys (value = 10 bytes ) vs 1k keys (value = 10000 bytes)
+### 2. Sled 1M keys (value = 10 bytes ) vs 1k keys (value = 10000 bytes)
 ```
 sled_set_1M_small_keys/1000000x10  time:   [2.8777 s 2.9240 s 2.9564 s]
 sled_set_1000_large_keys/1000x1000 time:   [33.428 ms 33.727 ms 33.995 ms]
@@ -50,3 +57,10 @@ sled_set_1000_large_keys/1000x1000 time:   [33.428 ms 33.727 ms 33.995 ms]
 sled_get_1M_small_keys/1000000x10  time:   [1.0038 s 1.0121 s 1.0292 s]
 sled_get_1000_large_keys/1000x1000  time:   [607.27 us 608.40 us 609.47 us]
 ```
+
+
+---
+
+Graphs available at https://github.com/fgadaleta/dbench/tree/main/target/criterion/reports
+
+---
