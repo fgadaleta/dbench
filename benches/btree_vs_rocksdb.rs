@@ -196,7 +196,7 @@ fn sled_bench_key_num_vs_size(c: &mut Criterion) {
     let config = sled::Config::default()
         .path("/tmp/db_sled".to_owned())
         .cache_capacity(10_000_000_000)
-        .flush_every_ms(Some(1000));
+        .flush_every_ms(Some(500));
     let db = config.open().unwrap();
 
     // Get pre-generated keys and store to searchbox
@@ -313,7 +313,7 @@ fn rocksdb_bench(c: &mut Criterion) {
     let rocks_path = "/tmp/db_rocksdb";
     let mut options = rocksdb::Options::default();
     options.create_if_missing(true);
-    options.set_compression_type(rocksdb::DBCompressionType::Lz4);
+    // options.set_compression_type(rocksdb::DBCompressionType::Lz4);
     let db = rocksdb::DB::open(&options, rocks_path).unwrap();
 
     // Get pre-generated keys and store to searchbox
@@ -378,6 +378,6 @@ fn rocksdb_bench(c: &mut Criterion) {
 criterion_group! {
     name = benches;
     config = Criterion::default().sample_size(10).measurement_time(Duration::from_secs(60)).warm_up_time(Duration::from_secs(3));
-    targets = /*rocksdb_bench, sled_bench,*/ sled_bench_key_num_vs_size
+    targets = rocksdb_bench, sled_bench, sled_bench_key_num_vs_size
 }
 criterion_main!(benches);
