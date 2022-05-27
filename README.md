@@ -3,6 +3,7 @@
 ## Install
 
 ```
+sudo apt install gnuplot
 cargo build
 cargo install cargo-criterion
 cargo-criterion
